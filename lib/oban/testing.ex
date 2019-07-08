@@ -96,6 +96,10 @@ defmodule Oban.Testing do
       def refute_enqueued(args) do
         Testing.refute_enqueued(unquote(repo), args)
       end
+
+      def count_enqueued(args) do
+        Testing.count_enqueued(unquote(repo), args)
+      end
     end
   end
 
@@ -108,7 +112,9 @@ defmodule Oban.Testing do
   @doc since: "0.3.0"
   @spec assert_enqueued(repo :: module(), opts :: Enum.t()) :: true
   def assert_enqueued(repo, [_ | _] = opts) do
-    assert get_job(repo, opts), "Expected a job matching #{inspect(opts)} to be enqueued"
+    job = get_job(repo, opts)
+    assert job, "Expected a job matching #{inspect(opts)} to be enqueued"
+    job.args
   end
 
   @doc """
@@ -122,12 +128,23 @@ defmodule Oban.Testing do
     refute get_job(repo, opts), "Expected no jobs matching #{inspect(opts)} to be enqueued"
   end
 
+  @doc """
+  Count the matching enqueued messages
+  """
+  @spec count_enqueued(repo :: module(), opts :: Enum.t()) :: number
+  def count_enqueued(repo, [_ | _] = opts) do
+    Job
+    |> where([j], j.state in ["available", "scheduled"])
+    |> where(^normalize_opts(opts))
+    |> select(count())
+    |> repo.one()
+  end
+
   defp get_job(repo, opts) do
     Job
     |> where([j], j.state in ["available", "scheduled"])
     |> where(^normalize_opts(opts))
     |> limit(1)
-    |> select([:id])
     |> repo.one()
   end
 
